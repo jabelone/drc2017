@@ -5,19 +5,18 @@ import time
 import os
 from datetime import datetime
 import pickle
+import csv
 
-width = 960 # Our capture width
-height = 540 # Our capture height
+width = 640 # Our capture width
+height = 360 # Our capture height
 
 show_preview = False # Default to false
 
 # Should we show a preview of the video stream
-if ("-p" in sys.argv) or ("--show-preview" in sys.argv):
+if ("-s" in sys.argv) or ("--show-preview" in sys.argv):
     print("Will show preview when ready...")
     show_preview = True
 
-# Placeholder for each list item/frame
-frame = {"jpg": "", "steering": 0.0, "throttle": 0.0}
 
 # Holds all our individual video frame filenames/data
 frames = []
@@ -49,9 +48,12 @@ def main(argv):
         if (show_preview):
             cv2.imshow("input", img)
         
+        # Placeholder for each list item/frame
+        frame = {"jpg": "", "steering": 0.0, "throttle": 0.0}
+
         # Set the current filename to frame number & write it
-        frame["jpg"] = jpg_path + "/" + str(frame_number) + ".jpg"
-        cv2.imwrite(frame["jpg"], img)
+        frame["jpg"] = str(frame_number) + ".jpg"
+        cv2.imwrite(jpg_path + "/" + frame["jpg"], img)
         
         # TODO (placeholder) - will implement soon, static values for testing
         steering = 1.3
@@ -61,6 +63,10 @@ def main(argv):
         frame["steering"] = steering
         frame["throttle"] = throttle
         frames.append(frame)
+        #print("Saved Frame: " + str(frame))
+        
+        # Let us know we saved a frame
+        print("Captured and saved {} frames...".format(frame_number), end='\r')
         
         # Increase frame number by 1
         frame_number += 1
@@ -68,8 +74,7 @@ def main(argv):
         # Check if we should exit (press 'q') 
         key = cv2.waitKey(10)
         if key == 1048689:
-            pickle.dump(frames, open(jpg_path + "/frame_data.pickle", "wb"))
-            print("Saved {} frames and stored them in {}".format(len(frames), jpg_path))
+            quit_program()
             print("Exiting ('q' key pressed)")
             break
 
@@ -77,12 +82,26 @@ def main(argv):
     cv2.destroyAllWindows()
     cv2.VideoCapture(0).release()
 
+def quit_program():
+    if ("-c" in sys.argv) or ("--output-csv" in sys.argv):
+        with open(jpg_path + "/frame_data.csv", 'w') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerow(["jpg", "steering", "throttle"])
+            for frame in frames:
+                csvwriter.writerow([frame["jpg"], frame["steering"], frame["throttle"]])
+            print("Saved a csv in {}/frame_data.csv".format(jpg_path))
+
+    if ("-p" in sys.argv) or ("--output-pickle" in sys.argv):
+        pickle.dump(frames, open(jpg_path + "/frame_data.pickle", "wb"))
+        print("Saved a pickle in {}/frame_data.pickle".format(jpg_path))
+
+    print("\nSaved {} (jpg) frames and stored them in {}".format(len(frames), jpg_path))
+
 if __name__ == '__main__':
     try:
         main(sys.argv)
     except KeyboardInterrupt:
-        pickle.dump(frames, open(jpg_path + "/frame_data.pickle", "wb"))
-        print("\nSaved {} frames and stored them in {}".format(len(frames), jpg_path))
+        quit_program()
         print("Exiting (keyboard interrupt)")
         try:
             sys.exit(0)
